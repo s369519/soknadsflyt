@@ -1,0 +1,20 @@
+services:
+  intake-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: soknad
+      POSTGRES_PASSWORD: soknad
+      POSTGRES_DB: intake
+    ports: ["5434:5432"]
+
+  behandling-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: soknad
+      POSTGRES_PASSWORD: soknad
+      POSTGRES_DB: behandling
+    ports: ["5433:5432"]
+
+  kafka:
+    image: apache/kafka:3.9.0
+    ports: ["9092:9092"]
