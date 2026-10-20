@@ -12,4 +12,9 @@ class KafkaConfig {
     @Bean
     fun soknadMottattTopic(): NewTopic =
         TopicBuilder.name(SOKNAD_MOTTATT_TOPIC).partitions(1).replicas(1).build()
+
+    @Bean
+    fun soknadBehandletTopic(): NewTopic =
+        TopicBuilder.name("soknad.behandlet").partitions(1).replicas(1).build()
 }
+

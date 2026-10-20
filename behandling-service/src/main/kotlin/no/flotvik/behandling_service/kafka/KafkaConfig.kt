@@ -9,7 +9,12 @@ const val SOKNAD_BEHANDLET_TOPIC = "soknad.behandlet"
 
 @Configuration
 class KafkaConfig {
+
     @Bean
     fun soknadBehandletTopic(): NewTopic =
         TopicBuilder.name(SOKNAD_BEHANDLET_TOPIC).partitions(1).replicas(1).build()
+
+    @Bean
+    fun soknadMottattTopic(): NewTopic =
+        TopicBuilder.name("soknad.mottatt").partitions(1).replicas(1).build()
 }
