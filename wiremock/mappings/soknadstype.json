@@ -1,0 +1,8 @@
+{
+  "request": { "method": "GET", "urlPathPattern": "/api/soknadstyper/.*" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "type": "DAGPENGER", "automatiskBehandling": true }
+  }
+}

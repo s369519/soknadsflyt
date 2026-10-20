@@ -34,4 +34,10 @@ class SoknadService(
         repository.findById(id).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Fant ikke søknad $id")
         }
+
+    @Transactional
+    fun markerFerdig(id: UUID) {
+        val soknad = hent(id)
+        soknad.status = SoknadStatus.FERDIG
+    }
 }
