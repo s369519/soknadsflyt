@@ -61,6 +61,34 @@ cd behandling-service && ./gradlew test
 
 Testene dekker blant annet at en lagret søknad gir en hendelse på Kafka, at validering
 avviser ugyldige søknader, og at samme melding levert to ganger ikke gir dobbel behandling.
+## Kjør i Kubernetes (lokalt med kind)
+
+Krever Docker, [kind](https://kind.sigs.k8s.io/) og kubectl.
+
+```bash
+kind create cluster --name soknadsflyt
+
+docker build -t intake-service:local intake-service
+docker build -t behandling-service:local behandling-service
+kind load docker-image intake-service:local behandling-service:local --name soknadsflyt
+
+kubectl apply -f k8s/00-namespace.yaml
+kubectl create secret generic soknad-db --namespace soknadsflyt \
+  --from-literal=username=soknad --from-literal=password=soknad
+kubectl apply -f k8s/
+kubectl get pods -n soknadsflyt -w
+```
+
+Når alle pods er `Running`, åpne port-forward og send en søknad:
+
+```bash
+kubectl port-forward -n soknadsflyt svc/intake-service 8095:8080
+kubectl port-forward -n soknadsflyt svc/behandling-service 8096:8080
+```
+
+Manifestene ligger i `k8s/`: Deployments for tjenestene, StatefulSets for Postgres,
+ConfigMaps for konfigurasjon, og liveness-/readiness-probes mot Spring Actuator.
+Databasepassordet ligger i en Secret som opprettes manuelt og ikke sjekkes inn i repoet.
 
 ## Designvalg
 
@@ -77,5 +105,6 @@ avviser ugyldige søknader, og at samme melding levert to ganger ikke gir dobbel
 - Hendelsen kan gå tapt hvis Kafka er nede akkurat når den skal publiseres. Løsningen er
   *transactional outbox*, som ikke er implementert.
 - Ingen dead letter-topic eller kontrollert retry-strategi for meldinger som feiler.
-- Tjenestene har ikke Dockerfile ennå og kjøres med `bootRun`.
+- Kafka og Postgres kjører som enkle enkeltinstanser i klyngen, uten replikering eller backup.
+- Passordet i eksemplene er et lokalt testpassord. Reelle hemmeligheter bør komme fra en secret manager.
 - Ingen autentisering.

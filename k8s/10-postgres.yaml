@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: intake-db
+  namespace: soknadsflyt
+spec:
+  selector:
+    app: intake-db
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: intake-db
+  namespace: soknadsflyt
+spec:
+  serviceName: intake-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: intake-db
+  template:
+    metadata:
+      labels:
+        app: intake-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: intake
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: soknad-db
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: soknad-db
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "soknad", "-d", "intake"]
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: behandling-db
+  namespace: soknadsflyt
+spec:
+  selector:
+    app: behandling-db
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: behandling-db
+  namespace: soknadsflyt
+spec:
+  serviceName: behandling-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: behandling-db
+  template:
+    metadata:
+      labels:
+        app: behandling-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: behandling
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: soknad-db
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: soknad-db
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "soknad", "-d", "behandling"]
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

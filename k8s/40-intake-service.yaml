@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intake-service-config
+  namespace: soknadsflyt
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://intake-db:5432/intake
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intake-service
+  namespace: soknadsflyt
+spec:
+  selector:
+    app: intake-service
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intake-service
+  namespace: soknadsflyt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: intake-service
+  template:
+    metadata:
+      labels:
+        app: intake-service
+    spec:
+      containers:
+        - name: intake-service
+          image: intake-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: intake-service-config
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: soknad-db
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: soknad-db
+                  key: password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 768Mi
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            periodSeconds: 10
