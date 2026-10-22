@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,3 +22,39 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew build
+
+  e2e-kubernetes:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: soknadsflyt
+
+      - name: Bygg Docker-bilder
+        run: |
+          docker build -t intake-service:local intake-service
+          docker build -t behandling-service:local behandling-service
+
+      - name: Last bildene inn i kind
+        run: kind load docker-image intake-service:local behandling-service:local --name soknadsflyt
+
+      - name: Deploy med Kustomize
+        run: kubectl apply -k k8s/overlays/local
+
+      - name: Vent til alle pods er klare
+        run: kubectl wait --for=condition=Ready pod --all -n soknadsflyt --timeout=300s
+
+      - name: Kjør ende-til-ende-test
+        run: ./scripts/e2e-k8s.sh
+
+      - name: Diagnostikk ved feil
+        if: failure()
+        run: |
+          kubectl get pods -n soknadsflyt
+          kubectl describe pods -n soknadsflyt | tail -150
+          kubectl logs deploy/intake-service -n soknadsflyt --tail=100 || true
+          kubectl logs deploy/behandling-service -n soknadsflyt --tail=100 || true

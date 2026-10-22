@@ -94,7 +94,7 @@ Fjern klyngen med `kind delete cluster --name soknadsflyt`.
 
 ## Tester
 
-Integrasjonstestene bruker Testcontainers (ekte PostgreSQL og Kafka) og krever Docker:
+GitHub Actions kjører bygg og tester for begge tjenestene på hver push og pull request.
 
 ```bash
 cd intake-service && ./gradlew test
