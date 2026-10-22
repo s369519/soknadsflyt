@@ -1,49 +1,47 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: intake-service-config
-  namespace: soknadsflyt
+  name: behandling-service-config
 data:
-  SPRING_DATASOURCE_URL: jdbc:postgresql://intake-db:5432/intake
+  SPRING_DATASOURCE_URL: jdbc:postgresql://behandling-db:5432/behandling
   SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  REGELVERK_URL: http://regelverk-api:8080
   MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
   JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: intake-service
-  namespace: soknadsflyt
+  name: behandling-service
 spec:
   selector:
-    app: intake-service
+    app: behandling-service
   ports:
     - port: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: intake-service
-  namespace: soknadsflyt
+  name: behandling-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: intake-service
+      app: behandling-service
   template:
     metadata:
       labels:
-        app: intake-service
+        app: behandling-service
     spec:
       containers:
-        - name: intake-service
-          image: intake-service:local
+        - name: behandling-service
+          image: behandling-service
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: intake-service-config
+                name: behandling-service-config
           env:
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:

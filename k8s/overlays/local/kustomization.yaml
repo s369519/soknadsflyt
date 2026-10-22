@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: soknadsflyt
+resources:
+  - ../../base
+
+# Kun lokalt testpassord. Ekte miljøer bør hente hemmeligheter fra en secret manager.
+secretGenerator:
+  - name: soknad-db
+    literals:
+      - username=soknad
+      - password=soknad
+
+images:
+  - name: intake-service
+    newTag: local
+  - name: behandling-service
+    newTag: local

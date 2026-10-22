@@ -2,7 +2,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: regelverk-mappings
-  namespace: soknadsflyt
 data:
   soknadstype.json: |
     {
@@ -18,7 +17,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: regelverk-api
-  namespace: soknadsflyt
 spec:
   selector:
     app: regelverk-api
@@ -29,7 +27,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: regelverk-api
-  namespace: soknadsflyt
 spec:
   replicas: 1
   selector:
