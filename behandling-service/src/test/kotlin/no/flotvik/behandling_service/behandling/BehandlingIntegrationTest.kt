@@ -7,6 +7,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -24,12 +25,17 @@ import java.util.UUID
 class BehandlingIntegrationTest {
 
     companion object {
-        // Simulerer det eksterne regelverk-API-et
+        // Simulerer det eksterne regelverk-API-et. Typen UKJENT gir 404.
         private val regelverkApi: HttpServer = HttpServer.create(InetSocketAddress(0), 0).apply {
             createContext("/api/soknadstyper/") { exchange ->
-                val body = """{"type":"DAGPENGER","automatiskBehandling":true}""".toByteArray()
+                val ukjent = exchange.requestURI.path.endsWith("/UKJENT")
+                val body = if (ukjent) {
+                    """{"feil":"ukjent type"}"""
+                } else {
+                    """{"type":"DAGPENGER","automatiskBehandling":true}"""
+                }.toByteArray()
                 exchange.responseHeaders.add("Content-Type", "application/json")
-                exchange.sendResponseHeaders(200, body.size.toLong())
+                exchange.sendResponseHeaders(if (ukjent) 404 else 200, body.size.toLong())
                 exchange.responseBody.use { it.write(body) }
             }
             start()
@@ -51,10 +57,10 @@ class BehandlingIntegrationTest {
     @Autowired
     lateinit var repository: BehandlingRepository
 
-    private fun soknadMottatt(id: UUID) =
-        """{"soknadId":"$id","type":"DAGPENGER","mottatt":"2026-10-20T12:00:00Z"}"""
+    private fun soknadMottatt(id: UUID, type: String = "DAGPENGER") =
+        """{"soknadId":"$id","type":"$type","mottatt":"2026-10-20T12:00:00Z"}"""
 
-    private fun behandletConsumer(): KafkaConsumer<String, String> {
+    private fun konsument(topic: String): KafkaConsumer<String, String> {
         val props = mapOf<String, Any>(
             ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.bootstrapServers,
             ConsumerConfig.GROUP_ID_CONFIG to "test-${UUID.randomUUID()}",
@@ -62,14 +68,23 @@ class BehandlingIntegrationTest {
             ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG to StringDeserializer::class.java.name,
             ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG to StringDeserializer::class.java.name,
         )
-        return KafkaConsumer<String, String>(props).also { it.subscribe(listOf("soknad.behandlet")) }
+        return KafkaConsumer<String, String>(props).also { it.subscribe(listOf(topic)) }
+    }
+
+    private fun ventPaaMelding(consumer: KafkaConsumer<String, String>, noekkel: String): String {
+        var verdi: String? = null
+        await().atMost(Duration.ofSeconds(30)).untilAsserted {
+            consumer.poll(Duration.ofMillis(500)).forEach { if (it.key() == noekkel) verdi = it.value() }
+            assertNotNull(verdi, "Fant ingen melding med nøkkel $noekkel")
+        }
+        return verdi!!
     }
 
     @Test
     fun `behandler soknad og publiserer SoknadBehandlet`() {
         val id = UUID.randomUUID()
 
-        behandletConsumer().use { consumer ->
+        konsument("soknad.behandlet").use { consumer ->
             kafkaTemplate.send("soknad.mottatt", id.toString(), soknadMottatt(id))
 
             await().atMost(Duration.ofSeconds(30)).untilAsserted {
@@ -89,7 +104,7 @@ class BehandlingIntegrationTest {
     fun `samme melding to ganger gir kun en behandling og en hendelse`() {
         val id = UUID.randomUUID()
 
-        behandletConsumer().use { consumer ->
+        konsument("soknad.behandlet").use { consumer ->
             kafkaTemplate.send("soknad.mottatt", id.toString(), soknadMottatt(id))
             kafkaTemplate.send("soknad.mottatt", id.toString(), soknadMottatt(id))
 
@@ -104,6 +119,31 @@ class BehandlingIntegrationTest {
                 consumer.poll(Duration.ofMillis(500)).forEach { nokler.add(it.key()) }
             }
             assertEquals(1, nokler.count { it == id.toString() })
+        }
+    }
+
+    @Test
+    fun `ugyldig melding havner paa dead letter-topic`() {
+        val noekkel = "ugyldig-${UUID.randomUUID()}"
+
+        konsument("soknad.mottatt.DLT").use { consumer ->
+            kafkaTemplate.send("soknad.mottatt", noekkel, "dette er ikke json")
+
+            assertEquals("dette er ikke json", ventPaaMelding(consumer, noekkel))
+        }
+    }
+
+    @Test
+    fun `ukjent soknadstype gir 404 og havner paa dead letter-topic`() {
+        val id = UUID.randomUUID()
+
+        konsument("soknad.mottatt.DLT").use { consumer ->
+            kafkaTemplate.send("soknad.mottatt", id.toString(), soknadMottatt(id, "UKJENT"))
+
+            ventPaaMelding(consumer, id.toString())
+
+            // Behandlingen ble startet, men aldri ferdigstilt
+            assertEquals(BehandlingStatus.UNDER_BEHANDLING, repository.findById(id).orElse(null)?.status)
         }
     }
 }
