@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: intake-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["intake-service:8080"]
+
+  - job_name: behandling-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["behandling-service:8080"]

@@ -1,0 +1,70 @@
+{
+  "title": "Søknadsflyt",
+  "uid": "soknadsflyt",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Mottatte søknader",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum(soknader_mottatt_total) or vector(0)" }]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Ferdige søknader",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum(soknader_ferdig_total) or vector(0)" }]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Meldinger på dead letter",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum(soknader_dead_letter_total) or vector(0)" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Feilede behandlingsforsøk",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum(behandling_forsok_feilet_total) or vector(0)" }]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Søknader per minutt",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(soknader_mottatt_total[1m])) * 60", "legendFormat": "mottatt" },
+        { "refId": "B", "expr": "sum(rate(soknader_ferdig_total[1m])) * 60", "legendFormat": "ferdig" }
+      ]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Svartid fra regelverk-API (snitt, sekunder)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(regelverk_kall_seconds_sum[1m])) / sum(rate(regelverk_kall_seconds_count[1m]))", "legendFormat": "snitt" }
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "JVM heap per tjeneste",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum by (job) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "{{job}}" }
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Feilede forsøk per minutt",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(behandling_forsok_feilet_total[1m])) * 60", "legendFormat": "feilede forsøk" },
+        { "refId": "B", "expr": "sum(rate(soknader_dead_letter_total[1m])) * 60", "legendFormat": "til dead letter" }
+      ]
+    }
+  ]
+}
