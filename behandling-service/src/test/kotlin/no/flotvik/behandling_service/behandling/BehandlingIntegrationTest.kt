@@ -126,7 +126,7 @@ class BehandlingIntegrationTest {
     fun `ugyldig melding havner paa dead letter-topic`() {
         val noekkel = "ugyldig-${UUID.randomUUID()}"
 
-        konsument("soknad.mottatt.DLT").use { consumer ->
+        konsument("soknad.mottatt-dlt").use { consumer ->
             kafkaTemplate.send("soknad.mottatt", noekkel, "dette er ikke json")
 
             assertEquals("dette er ikke json", ventPaaMelding(consumer, noekkel))
@@ -137,7 +137,7 @@ class BehandlingIntegrationTest {
     fun `ukjent soknadstype gir 404 og havner paa dead letter-topic`() {
         val id = UUID.randomUUID()
 
-        konsument("soknad.mottatt.DLT").use { consumer ->
+        konsument("soknad.mottatt-dlt").use { consumer ->
             kafkaTemplate.send("soknad.mottatt", id.toString(), soknadMottatt(id, "UKJENT"))
 
             ventPaaMelding(consumer, id.toString())

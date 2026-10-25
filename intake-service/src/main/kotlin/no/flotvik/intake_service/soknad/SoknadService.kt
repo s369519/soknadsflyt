@@ -1,5 +1,6 @@
 package no.flotvik.intake_service.soknad
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -12,6 +13,7 @@ import java.util.UUID
 class SoknadService(
     private val repository: SoknadRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val meterRegistry: MeterRegistry,
 ) {
 
     @Transactional
@@ -26,7 +28,15 @@ class SoknadService(
         )
         val lagret = repository.save(soknad)
         eventPublisher.publishEvent(SoknadMottatt(lagret.id, lagret.type, lagret.opprettet))
+        meterRegistry.counter("soknader.mottatt").increment()
         return lagret
+    }
+
+    @Transactional
+    fun markerFerdig(id: UUID) {
+        val soknad = hent(id)
+        soknad.status = SoknadStatus.FERDIG
+        meterRegistry.counter("soknader.ferdig").increment()
     }
 
     @Transactional(readOnly = true)
@@ -37,10 +47,4 @@ class SoknadService(
 
     @Transactional(readOnly = true)
     fun siste(): List<Soknad> = repository.findTop20ByOrderByOpprettetDesc()
-
-    @Transactional
-    fun markerFerdig(id: UUID) {
-        val soknad = hent(id)
-        soknad.status = SoknadStatus.FERDIG
-    }
 }

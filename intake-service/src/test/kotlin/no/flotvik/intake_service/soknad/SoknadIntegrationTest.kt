@@ -21,7 +21,9 @@ import org.testcontainers.kafka.ConfluentKafkaContainer
 import java.time.Duration
 import java.util.UUID
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = ["management.prometheus.metrics.export.enabled=true"],)
 @Import(IntakeContainers::class)
 class SoknadIntegrationTest {
 
@@ -122,5 +124,16 @@ class SoknadIntegrationTest {
             .body(List::class.java)!!
 
         assertTrue(liste.any { (it as Map<*, *>)["id"] == id })
+    }
+
+    @Test
+    fun `eksponerer metrikker for mottatte soknader`() {
+        opprettSoknad()
+
+        val metrikker = client().get().uri("/actuator/prometheus")
+            .retrieve()
+            .body(String::class.java)!!
+
+        assertTrue(metrikker.contains("soknader_mottatt_total"))
     }
 }
