@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/s369519/soknadsflyt/actions/workflows/ci.yml/badge.svg)
 
-En liten, hendelsesdrevet integrasjon mellom to Kotlin/Spring Boot-tjenester. En søknad
+En hendelsesdrevet integrasjon mellom to Kotlin/Spring Boot-tjenester. En søknad
 mottas via REST, behandles asynkront via Kafka, og status flyter tilbake til
 mottakstjenesten. Prosjektet kjører lokalt med Docker Compose og i Kubernetes (kind).
 

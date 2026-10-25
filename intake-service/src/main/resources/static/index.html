@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Søknadsflyt</title>
+    <link rel="stylesheet" href="/bootstrap.min.css">
+</head>
+<body class="bg-body-tertiary">
+<main class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+
+            <h1 class="h3 mb-1">Søknadsflyt</h1>
+            <p class="text-body-secondary mb-4">
+                En søknad lagres i <code>intake-service</code>, sendes via Kafka til
+                <code>behandling-service</code>, og status kommer tilbake via Kafka.
+            </p>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Status akkurat nå (siste 20)</h2>
+                    <div class="row g-2 text-center align-items-center">
+                        <div class="col">
+                            <div class="p-3 bg-body-secondary rounded">
+                                <div class="fs-3 fw-bold" id="totalt">0</div>
+                                <small class="text-body-secondary">lagret i intake</small>
+                            </div>
+                        </div>
+                        <div class="col-auto text-body-secondary">→</div>
+                        <div class="col">
+                            <div class="p-3 bg-body-secondary rounded">
+                                <div class="fs-3 fw-bold" id="venter">0</div>
+                                <small class="text-body-secondary">venter på behandling</small>
+                            </div>
+                        </div>
+                        <div class="col-auto text-body-secondary">→</div>
+                        <div class="col">
+                            <div class="p-3 bg-body-secondary rounded">
+                                <div class="fs-3 fw-bold" id="ferdig">0</div>
+                                <small class="text-body-secondary">ferdig</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Send en søknad</h2>
+                    <form id="skjema" class="row g-2">
+                        <div class="col-md-3">
+                            <input id="navn" class="form-control" placeholder="Navn" value="Kari Nordmann" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input id="epost" class="form-control" placeholder="E-post" value="kari@example.com" required>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="type" class="form-select">
+                                <option>DAGPENGER</option>
+                                <option>SYKEPENGER</option>
+                                <option>FORELDREPENGER</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-fill">Send</button>
+                            <button type="button" class="btn btn-outline-primary flex-fill" id="ti">Send 10</button>
+                        </div>
+                    </form>
+                    <div id="melding" class="mt-2 small"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Siste søknader</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                            <tr><th>Tidspunkt</th><th>Navn</th><th>Type</th><th>Status</th><th>Id</th></tr>
+                            </thead>
+                            <tbody id="rader"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<script>
+    const $ = (id) => document.getElementById(id);
+
+    const badgeKlasse = {
+        MOTTATT: 'text-bg-warning',
+        UNDER_BEHANDLING: 'text-bg-primary',
+        FERDIG: 'text-bg-success',
+    };
+
+    function celle(tekst, badge) {
+        const td = document.createElement('td');
+        if (badge) {
+            const span = document.createElement('span');
+            span.className = 'badge ' + badge;
+            span.textContent = tekst;
+            td.appendChild(span);
+        } else {
+            td.textContent = tekst;
+        }
+        return td;
+    }
+
+    function vis(liste) {
+        $('totalt').textContent = liste.length;
+        $('venter').textContent = liste.filter((s) => s.status !== 'FERDIG').length;
+        $('ferdig').textContent = liste.filter((s) => s.status === 'FERDIG').length;
+
+        const rader = liste.map((s) => {
+            const tr = document.createElement('tr');
+            tr.appendChild(celle(new Date(s.opprettet).toLocaleTimeString('no-NO')));
+            tr.appendChild(celle(s.sokerNavn));
+            tr.appendChild(celle(s.type));
+            tr.appendChild(celle(s.status, badgeKlasse[s.status] || 'text-bg-secondary'));
+            tr.appendChild(celle(s.id.substring(0, 8)));
+            return tr;
+        });
+        $('rader').replaceChildren(...rader);
+    }
+
+    function melding(tekst, feil) {
+        const el = $('melding');
+        el.textContent = tekst;
+        el.className = 'mt-2 small' + (feil ? ' text-danger' : '');
+    }
+
+    async function last() {
+        try {
+            const svar = await fetch('/soknader');
+            if (!svar.ok) throw new Error('HTTP ' + svar.status);
+            vis(await svar.json());
+        } catch (e) {
+            melding('Får ikke kontakt med intake-service: ' + e.message, true);
+        }
+    }
+
+    async function send(navn, epost, type) {
+        const svar = await fetch('/soknader', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sokerNavn: navn, sokerEpost: epost, type: type }),
+        });
+        if (!svar.ok) throw new Error('Svar fra server: ' + svar.status);
+    }
+
+    $('skjema').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            await send($('navn').value, $('epost').value, $('type').value);
+            melding('Søknad sendt', false);
+            last();
+        } catch (err) {
+            melding(err.message, true);
+        }
+    });
+
+    $('ti').addEventListener('click', async () => {
+        const typer = ['DAGPENGER', 'SYKEPENGER', 'FORELDREPENGER'];
+        try {
+            await Promise.all(
+                Array.from({ length: 10 }, (_, i) =>
+                    send('Testperson ' + (i + 1), 'test' + (i + 1) + '@example.com', typer[i % typer.length])
+                )
+            );
+            melding('10 søknader sendt', false);
+            last();
+        } catch (err) {
+            melding(err.message, true);
+        }
+    });
+
+    last();
+    setInterval(last, 1500);
+</script>
+</body>
+</html>

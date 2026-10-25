@@ -112,4 +112,15 @@ class SoknadIntegrationTest {
             assertEquals(SoknadStatus.FERDIG, status)
         }
     }
+
+    @Test
+    fun `lister siste soknader`() {
+        val id = opprettSoknad()
+
+        val liste = client().get().uri("/soknader")
+            .retrieve()
+            .body(List::class.java)!!
+
+        assertTrue(liste.any { (it as Map<*, *>)["id"] == id })
+    }
 }

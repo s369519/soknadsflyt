@@ -21,6 +21,9 @@ class SoknadController(private val service: SoknadService) {
         return ResponseEntity.created(URI.create("/soknader/${soknad.id}")).body(soknad.tilResponse())
     }
 
+    @GetMapping
+    fun liste(): List<SoknadResponse> = service.siste().map { it.tilResponse() }
+
     @GetMapping("/{id}")
     fun hent(@PathVariable id: UUID): SoknadResponse = service.hent(id).tilResponse()
 }

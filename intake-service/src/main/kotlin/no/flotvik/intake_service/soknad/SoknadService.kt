@@ -35,6 +35,9 @@ class SoknadService(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Fant ikke søknad $id")
         }
 
+    @Transactional(readOnly = true)
+    fun siste(): List<Soknad> = repository.findTop20ByOrderByOpprettetDesc()
+
     @Transactional
     fun markerFerdig(id: UUID) {
         val soknad = hent(id)
